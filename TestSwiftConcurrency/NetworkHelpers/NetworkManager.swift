@@ -16,6 +16,8 @@ enum APIConstants: String {
 
 class NetworkManager {
     static var shared = NetworkManager()
+    private var cancellables = Set<AnyCancellable>()
+    
     func fetchDataWithCompletion(url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
         let task = URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -26,23 +28,27 @@ class NetworkManager {
         }
         task.resume()
     }
-    
-    private var cancellables = Set<AnyCancellable>()
 
-    private func fetchDataWithCombine(url: URL) -> AnyPublisher<Data, Error> {
+    private func combineDataTaskPublisher(url: URL) -> AnyPublisher<Data, Error> {
         URLSession.shared.dataTaskPublisher(for: url)
             .map(\.data)
             .mapError { $0 as Error }
             .eraseToAnyPublisher()
     }
     
-    func fetchDataWithAsync(url: URL) async throws -> Data {
-        let (data, _) = try await URLSession.shared.data(from: url)
-        return data
-    }
-    
     func fetchDataWithCombine(url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
-        fetchDataWithCombine(url: url)
+        combineDataTaskPublisher(url: url).sink { completion in
+            switch completion {
+            case .finished:
+                break
+            case .failure(error):
+                break
+            }
+        } receiveValue: { data in
+            
+        }
+
+        combineDataTaskPublisher(url: url)
             .sink(receiveCompletion: { completion in
                 switch completion {
                 case .finished:
@@ -57,6 +63,11 @@ class NetworkManager {
             .store(in: &cancellables)
     }
     
+    func fetchDataWithAsync(url: URL) async throws -> Data {
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return data
+    }
+
     func fetchDataWithGCD(url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
         DispatchQueue.global(qos: .background).async {
             do {
