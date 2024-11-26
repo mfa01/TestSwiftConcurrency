@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 enum APIConstants: String {
     case imageListPath = "https://picsum.photos/v2/list"
@@ -24,6 +25,53 @@ class NetworkManager {
             }
         }
         task.resume()
+    }
+    
+    private var cancellables = Set<AnyCancellable>()
+
+    private func fetchDataWithCombine(url: URL) -> AnyPublisher<Data, Error> {
+        URLSession.shared.dataTaskPublisher(for: url)
+            .map(\.data)
+            .mapError { $0 as Error }
+            .eraseToAnyPublisher()
+    }
+    
+    func fetchDataWithAsync(url: URL) async throws -> Data {
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return data
+    }
+    
+    func fetchDataWithCombine(url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
+        fetchDataWithCombine(url: url)
+            .sink(receiveCompletion: { completion in
+                switch completion {
+                case .finished:
+                    print("Finished fetching data")
+                case .failure(let error):
+                    print("Error: \(error)")
+                }
+            }, receiveValue: { data in
+                print("Data fetched: \(data)")
+                completion(.success(data))
+            })
+            .store(in: &cancellables)
+    }
+    
+    func fetchDataWithGCD(url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
+        DispatchQueue.global(qos: .background).async {
+            do {
+                let data = try Data(contentsOf: url)
+                DispatchQueue.main.async {
+                    print("Data fetched: \(data)")
+                    completion(.success(data))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("Error: \(error)")
+                    completion(.failure(error))
+                }
+            }
+        }
     }
     
     func downloadImage(id: String, completion: @escaping (_ image: Image?, _ error: CustomError?) -> Void) {

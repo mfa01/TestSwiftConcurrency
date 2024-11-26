@@ -17,6 +17,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack {
+                Text("""
+                     Choosing the Right Approach
+                     *Use completion handlers if you're maintaining legacy code or working in an older project.
+                     *Use Combine if you're building a reactive system or want declarative handling.
+                     *Use Swift Concurrency for modern Swift development.
+                     *Use GCD sparingly, mainly for lower-level control or working outside of URLSession.
+                """
+                ).frame(maxWidth: .infinity).font(.footnote)
                 Button("Download List URLSession + Closure") {
                     self.isLoading = true
                     viewModel.fetchImages { success, images, error in
@@ -28,6 +36,42 @@ struct ContentView: View {
                         self.isLoading = false
                     }
                 }
+                Button("Download List Combine") {
+                    self.isLoading = true
+                    viewModel.fetchDataWithCompine { success, images, error in
+                        guard error == nil else {
+                            showError = true
+                            return
+                        }
+                        navigateToList = true
+                        self.isLoading = false
+                    }
+                }
+                
+                Button("Download List async-await") {
+                    self.isLoading = true
+                    viewModel.fetchDataWithAsync { success, images, error in
+                        guard error == nil else {
+                            showError = true
+                            return
+                        }
+                        navigateToList = true
+                        self.isLoading = false
+                    }
+                }
+                
+                Button("Download List GCD") {
+                    self.isLoading = true
+                    viewModel.fetchDataWithGCD { success, images, error in
+                        guard error == nil else {
+                            showError = true
+                            return
+                        }
+                        navigateToList = true
+                        self.isLoading = false
+                    }
+                }
+                Spacer()
             }
             .padding()
             .navigationTitle("Home")
